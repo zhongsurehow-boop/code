@@ -1,0 +1,15 @@
+streamlit
+pandas
+ccxt
+# The 'ccxt-pro' package is a commercial product and is not available on PyPI.
+# It must be installed separately from the private GitHub repository after purchase.
+# The application includes a mock version for development purposes if ccxt-pro is not found.
+# pip install git+https://github.com/kroitor/ccxt.pro.git#subdirectory=python
+web3
+httpx
+asyncpg
+plotly
+python-dotenv
+faker
+numpy
+nest_asyncio
