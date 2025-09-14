@@ -67,6 +67,8 @@ class DatabaseManager:
                     await conn.execute(
                         "SELECT create_hypertable('ticker_data', 'timestamp', if_not_exists => TRUE);"
                     )
+                    # Also create the continuous aggregate view
+                    await self._create_continuous_aggregates(conn)
                 else:
                     print("Warning: TimescaleDB extension not found. Using standard PostgreSQL table.")
                     # Optional: Create a standard index for performance on regular PostgreSQL
@@ -74,6 +76,38 @@ class DatabaseManager:
                         "CREATE INDEX IF NOT EXISTS idx_ticker_data_timestamp ON ticker_data (timestamp DESC);"
                     )
         print("Database initialization complete.")
+
+    async def _create_continuous_aggregates(self, conn: asyncpg.Connection):
+        """Creates continuous aggregates for OHLCV data."""
+        print("Creating/updating continuous aggregate for 1-minute OHLCV data...")
+        await conn.execute("""
+            CREATE MATERIALIZED VIEW IF NOT EXISTS ohlcv_1min
+            WITH (timescaledb.continuous) AS
+            SELECT
+                time_bucket('1 minute', timestamp) AS bucket,
+                symbol,
+                provider_name,
+                FIRST(price, timestamp) AS open,
+                MAX(price) AS high,
+                MIN(price) AS low,
+                LAST(price, timestamp) AS close,
+                SUM(volume) AS volume
+            FROM
+                ticker_data
+            GROUP BY
+                bucket, symbol, provider_name
+            WITH NO DATA;
+        """)
+
+        # Add a policy to automatically refresh the view
+        await conn.execute("""
+            SELECT add_continuous_aggregate_policy(
+                'ohlcv_1min',
+                start_offset => INTERVAL '30 minutes',
+                end_offset => INTERVAL '1 minute',
+                schedule_interval => INTERVAL '1 minute'
+            );
+        """)
 
 
     async def save_ticker_data(self, data: List[Dict[str, Any]]):
@@ -117,6 +151,26 @@ class DatabaseManager:
                 print(f"Successfully saved {len(records_to_insert)} records to the database.")
             except Exception as e:
                 print(f"Error saving data to database: {e}")
+
+    async def query_ohlcv_data(
+        self, symbol: str, start_time: datetime, end_time: datetime
+    ) -> pd.DataFrame:
+        """Queries the 1-minute OHLCV continuous aggregate view."""
+        if not self.pool:
+            raise ConnectionError("Database pool is not initialized.")
+
+        query = """
+        SELECT * FROM ohlcv_1min
+        WHERE symbol = $1 AND bucket BETWEEN $2 AND $3
+        ORDER BY bucket ASC;
+        """
+        async with self.pool.acquire() as conn:
+            records = await conn.fetch(query, symbol, start_time, end_time)
+
+        if not records:
+            return pd.DataFrame()
+
+        return pd.DataFrame(records, columns=records[0].keys())
 
     async def query_historical_data(
         self, symbol: str, start_time: datetime, end_time: datetime

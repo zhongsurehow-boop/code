@@ -1,6 +1,7 @@
 import streamlit as st
 import asyncio
 import nest_asyncio
+import time
 
 from config import load_config
 from db import DatabaseManager
@@ -112,3 +113,9 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+    # --- Auto-refresh loop ---
+    if st.session_state.get('auto_refresh_enabled', False):
+        interval = st.session_state.get('auto_refresh_interval', 10)
+        time.sleep(interval)
+        st.rerun()

@@ -64,26 +64,30 @@ class ArbitrageEngine:
                     continue # No potential for profit
 
                 # --- Fee Calculation ---
-                # Get fee info for the two providers, with defaults
-                buy_fees = self.fees_config.get(buy_provider_name.lower(), {'taker': 0.002, 'withdrawal_usd': 10.0})
-                sell_fees = self.fees_config.get(sell_provider_name.lower(), {'taker': 0.002, 'withdrawal_usd': 10.0})
+                # Get fee info for the two providers, using defaults if not found
+                default_fees = self.fees_config.get('default', {})
+                buy_fees = self.fees_config.get(buy_provider_name.lower(), default_fees)
+                sell_fees = self.fees_config.get(sell_provider_name.lower(), default_fees)
 
                 # 1. Cost of buying 1 unit of the base asset
-                # (e.g., 1 BTC in BTC/USDT)
                 initial_cost_usd = buy_price
-                buy_fee_usd = initial_cost_usd * buy_fees['taker']
+                buy_fee_usd = initial_cost_usd * buy_fees.get('taker', 0.002)
                 total_cost_usd = initial_cost_usd + buy_fee_usd
 
                 # 2. Revenue from selling 1 unit of the base asset
                 revenue_usd = sell_price
-                sell_fee_usd = revenue_usd * sell_fees['taker']
+                sell_fee_usd = revenue_usd * sell_fees.get('taker', 0.002)
                 net_revenue_usd = revenue_usd - sell_fee_usd
 
-                # 3. Withdrawal fee (assuming we move the asset from buy exchange to sell exchange)
-                # This is tricky as withdrawal fees are per-asset, not per-USD.
-                # For this model, we'll use a generic USD withdrawal fee as an estimate.
-                # A more advanced model would look up fees per asset (e.g., BTC withdrawal fee).
-                withdrawal_fee_usd = buy_fees.get('withdrawal_usd', 10.0)
+                # 3. Withdrawal fee calculation (more accurate model)
+                base_asset = symbol.split('/')[0]
+                withdrawal_fees_map = buy_fees.get('withdrawal_fees', {})
+
+                # Get the fee for the specific asset, or a default if not specified
+                withdrawal_fee_asset_amount = withdrawal_fees_map.get(base_asset, 0.0)
+
+                # Convert the asset withdrawal fee to its USD equivalent using the buy price
+                withdrawal_fee_usd = withdrawal_fee_asset_amount * buy_price
 
                 # 4. Calculate Net Profit
                 net_profit_usd = net_revenue_usd - total_cost_usd - withdrawal_fee_usd

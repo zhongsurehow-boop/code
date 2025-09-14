@@ -52,6 +52,17 @@ def sidebar_controls():
         st.cache_resource.clear()
         st.rerun()
 
+    st.sidebar.toggle("Auto-Refresh", key='auto_refresh_enabled', value=False)
+    st.sidebar.number_input(
+        "Refresh Interval (s)",
+        min_value=5,
+        max_value=120,
+        value=10,
+        step=5,
+        key='auto_refresh_interval',
+        disabled=not st.session_state.get('auto_refresh_enabled', False)
+    )
+
 def display_error(message: str):
     """A standardized way to display errors."""
     st.error(message, icon="🚨")

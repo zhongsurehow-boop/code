@@ -13,3 +13,6 @@ python-dotenv
 faker
 numpy
 nest_asyncio
+PyYAML
+pytest
+pytest-asyncio

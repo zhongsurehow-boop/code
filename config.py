@@ -1,9 +1,22 @@
 import streamlit as st
 import os
 from dotenv import load_dotenv
+import yaml
 
 # Load environment variables from a .env file if it exists
 load_dotenv()
+
+def load_yaml_config(filepath: str) -> dict:
+    """Loads a YAML file and returns its content."""
+    try:
+        with open(filepath, 'r') as f:
+            return yaml.safe_load(f)
+    except FileNotFoundError:
+        st.error(f"Configuration file not found: {filepath}")
+        return {}
+    except Exception as e:
+        st.error(f"Error loading YAML configuration from {filepath}: {e}")
+        return {}
 
 def load_config() -> dict:
     """
@@ -34,21 +47,12 @@ def load_config() -> dict:
     }
 
     # --- Arbitrage Engine Settings ---
-    # In a real app, this could be a more complex structure, maybe loaded from a separate YAML/JSON.
+    # Load fee structure from the external YAML file
+    fee_config = load_yaml_config('fees.yml')
+
     config['arbitrage'] = {
         'threshold': st.session_state.get('arbitrage_threshold', 0.2), # Get from session state
-        'fees': {
-            # Default fees, can be overridden by exchange-specific fees
-            'default': {'taker': 0.002, 'withdrawal_usd': 15.0},
-            # Exchange-specific fees (lowercase)
-            'binance': {'taker': 0.001, 'withdrawal_usd': 5.0},
-            'kraken': {'taker': 0.0025, 'withdrawal_usd': 10.0},
-            'coinbase': {'taker': 0.005, 'withdrawal_usd': 2.0},
-            'kucoin': {'taker': 0.001, 'withdrawal_usd': 8.0},
-            'okx': {'taker': 0.001, 'withdrawal_usd': 6.0},
-            'uniswap v3': {'taker': 0.003, 'withdrawal_usd': 20.0}, # Approximating gas as withdrawal
-            'thorchain': {'taker': 0.003, 'withdrawal_usd': 0.0}, # Fees are complex and already in quote
-        }
+        'fees': fee_config
     }
 
     return config
