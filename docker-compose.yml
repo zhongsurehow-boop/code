@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  # The Streamlit application service
+  app:
+    build: .
+    container_name: crypto_comparator_app
+    ports:
+      - "8501:8501"
+    volumes:
+      # Mount the current directory into the container for live-reloading during development
+      - .:/app
+    env_file:
+      - .env
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  # The TimescaleDB database service
+  db:
+    image: timescale/timescaledb:latest-pg14
+    container_name: crypto_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    env_file:
+      - .env
+    restart: unless-stopped
+
+volumes:
+  # Define a named volume for persistent database storage
+  pgdata:
